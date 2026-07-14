@@ -1,0 +1,137 @@
+@import url("https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #2d3f2e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  background: linear-gradient(160deg, #c9dfc8 0%, #a8c8b0 35%, #7fb069 70%, #5c8c56 100%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(45, 95, 63, 0.3);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 95, 63, 0.5);
+}
+
+@layer components {
+  /* 毛玻璃卡片 */
+  .glass {
+    @apply backdrop-blur-2xl bg-white/40 border border-white/60 shadow-glass;
+    background-image: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.35) 100%
+    );
+  }
+
+  .glass-dark {
+    @apply backdrop-blur-2xl bg-forest-deep/30 border border-white/40 shadow-glass;
+  }
+
+  .glass-card {
+    @apply glass rounded-3xl;
+  }
+
+  /* 毛玻璃按钮 */
+  .glass-btn {
+    @apply glass rounded-2xl px-5 py-3 font-medium transition-all duration-300;
+    @apply hover:bg-white/60 hover:shadow-glass-lg hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  /* 主按钮 - 森林渐变 */
+  .btn-primary {
+    @apply rounded-2xl px-5 py-3 font-medium text-white transition-all duration-300;
+    @apply hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glass-lg;
+    background: linear-gradient(135deg, #3d7b52 0%, #2d5f3f 100%);
+    box-shadow: 0 4px 14px rgba(45, 95, 63, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+  }
+
+  /* 金色按钮 - 星愿币相关 */
+  .btn-gold {
+    @apply rounded-2xl px-5 py-3 font-bold text-forest-deep transition-all duration-300;
+    @apply hover:-translate-y-0.5 active:translate-y-0 hover:shadow-glass-lg;
+    background: linear-gradient(135deg, #ffd166 0%, #f4b942 100%);
+    box-shadow: 0 4px 14px rgba(244, 185, 66, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  }
+
+  /* 标题字体 */
+  .font-display {
+    font-family: "ZCOOL KuaiLe", system-ui, sans-serif;
+    letter-spacing: 0.02em;
+  }
+}
+
+@layer utilities {
+  /* 任务完成横线 */
+  .text-strike {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    text-decoration-color: rgba(45, 95, 63, 0.6);
+  }
+
+  /* 露珠光泽 hover */
+  .dew-hover {
+    position: relative;
+    overflow: hidden;
+  }
+  .dew-hover::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.4),
+      transparent
+    );
+    transition: left 0.6s ease;
+  }
+  .dew-hover:hover::before {
+    left: 100%;
+  }
+
+  /* 森林文字阴影 */
+  .text-shadow-forest {
+    text-shadow: 0 2px 8px rgba(45, 95, 63, 0.2);
+  }
+}

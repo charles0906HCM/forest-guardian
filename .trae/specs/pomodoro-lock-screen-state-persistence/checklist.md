@@ -1,0 +1,10 @@
+- [x] Checkpoint 1: localStorage 工具函数正确定义和实现（savePomodoroState, loadPomodoroState, clearPomodoroState）
+- [x] Checkpoint 2: visibilitychange 事件监听器正确添加和移除
+- [x] Checkpoint 3: 页面隐藏时状态正确保存到 localStorage
+- [x] Checkpoint 4: 页面恢复可见时状态正确恢复并计算剩余时间
+- [x] Checkpoint 5: 计时完成后 localStorage 状态被清除
+- [x] Checkpoint 6: 重置按钮点击后 localStorage 状态被清除
+- [x] Checkpoint 7: 暂停时状态正确保存到 localStorage
+- [x] Checkpoint 8: 页面首次加载时能恢复之前的计时状态
+- [x] Checkpoint 9: 在 iPhone 上测试锁屏后恢复，计时状态保持正确
+- [x] Checkpoint 10: 组件卸载时状态正确清除

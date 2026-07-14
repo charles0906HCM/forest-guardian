@@ -1,0 +1,26 @@
+# 森林小卫士 - 自定义学科分类验证清单
+
+- [ ] Checkpoint 1: TypeScript 类型检查通过
+- [ ] Checkpoint 2: 默认内置4个学科正确初始化
+- [ ] Checkpoint 3: 可以添加新学科
+- [ ] Checkpoint 4: 可以修改学科名称/颜色/emoji
+- [ ] Checkpoint 5: 自定义学科可以删除
+- [ ] Checkpoint 6: 内置学科不可删除
+- [ ] Checkpoint 7: 删除有任务的学科时任务迁移到"其他"
+- [ ] Checkpoint 8: 刷新页⾯后学科数据保留
+- [ ] Checkpoint 9: 学科管理弹窗显示学科列表
+- [ ] Checkpoint 10: 弹窗中可以添加新学科
+- [ ] Checkpoint 11: 弹窗中可以编辑学科
+- [ ] Checkpoint 12: 弹窗中可以删除自定义学科
+- [ ] Checkpoint 13: 内置学科没有删除按钮
+- [ ] Checkpoint 14: 界面风格与应用一致
+- [ ] Checkpoint 15: 任务编辑弹窗中学科选择区域有管理按钮
+- [ ] Checkpoint 16: 点击管理按钮打开学科管理弹窗
+- [ ] Checkpoint 17: 管理后学科列表实时更新
+- [ ] Checkpoint 18: 任务卡片显示正确的学科颜色
+- [ ] Checkpoint 19: 时间轴显示正确的学科颜色
+- [ ] Checkpoint 20: 月历显示正确的学科颜色
+- [ ] Checkpoint 21: 学科筛选功能正常
+- [ ] Checkpoint 22: 新增/修改学科后各处同步更新
+- [ ] Checkpoint 23: 数据导出包含学科数据
+- [ ] Checkpoint 24: 数据导入包含学科数据

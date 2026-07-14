@@ -1,0 +1,8 @@
+- [x] Checkpoint 1: 默认只显示未完成的任务
+- [x] Checkpoint 2: 已完成任务默认折叠隐藏
+- [x] Checkpoint 3: 有已完成任务时显示"显示 X 个已完成任务"按钮
+- [x] Checkpoint 4: 点击按钮展开已完成任务，按钮文字变为"隐藏已完成任务"
+- [x] Checkpoint 5: 点击按钮折叠已完成任务，按钮文字变为"显示 X 个已完成任务"
+- [x] Checkpoint 6: 无已完成任务时不显示按钮
+- [x] Checkpoint 7: 展开的已完成任务显示为灰色/删除线样式
+- [x] Checkpoint 8: 折叠/展开有平滑的高度过渡动画
