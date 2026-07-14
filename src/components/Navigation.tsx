@@ -29,7 +29,7 @@ export default function Navigation() {
               🌲
             </div>
             <div>
-              <h1 className="font-display text-xl text-forest-deep leading-none">森林小卫士</h1>
+              <h1 className="font-display text-xl text-forest-deep leading-none">星愿森林</h1>
               <p className="text-xs text-forest-bark mt-1">打卡成长乐园</p>
             </div>
           </div>

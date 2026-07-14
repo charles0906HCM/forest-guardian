@@ -38,14 +38,14 @@ export default function SettingsPage() {
   const handleExport = async () => {
     const data = exportData();
     const blob = new Blob([data], { type: "application/json" });
-    const fileName = `森林小卫士_数据备份_${new Date().toISOString().slice(0, 10)}.json`;
+    const fileName = `星愿森林_数据备份_${new Date().toISOString().slice(0, 10)}.json`;
 
     if (navigator.share && navigator.canShare) {
       const file = new File([blob], fileName, { type: "application/json" });
       try {
         await navigator.share({
-          title: "森林小卫士数据备份",
-          text: "森林小卫士数据备份文件，可用于恢复或同步到其他设备",
+          title: "星愿森林数据备份",
+          text: "星愿森林数据备份文件，可用于恢复或同步到其他设备",
           files: [file],
         });
         showToast("📤 分享成功！");
@@ -432,7 +432,7 @@ export default function SettingsPage() {
         <div className="space-y-2 text-sm text-forest-bark">
           <div className="flex items-center justify-between">
             <span>应用名称</span>
-            <span className="font-medium text-forest-deep">森林小卫士</span>
+            <span className="font-medium text-forest-deep">星愿森林</span>
           </div>
           <div className="flex items-center justify-between">
             <span>版本</span>
@@ -447,7 +447,7 @@ export default function SettingsPage() {
         </div>
         <div className="mt-4 pt-4 border-t border-white/40">
           <p className="text-xs text-forest-bark text-center">
-            🌲 森林小卫士 · 陪伴孩子快乐成长 🌲
+            🌲 星愿森林 · 陪伴孩子快乐成长 🌲
           </p>
         </div>
       </section>

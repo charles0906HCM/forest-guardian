@@ -29,8 +29,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
-        name: '森林小卫士',
-        short_name: '森林小卫士',
+        name: '星愿森林',
+        short_name: '星愿森林',
         description: '小学生打卡任务管理应用',
         theme_color: '#2D5A3D',
         background_color: '#E8F0E5',
