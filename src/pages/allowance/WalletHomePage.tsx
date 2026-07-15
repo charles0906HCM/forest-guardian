@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { clsx } from "clsx";
-import { Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, BookOpen } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, BookOpen, Settings } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import ForestBackground from "@/components/ForestBackground";
 import type { AllowanceTransaction, AccountType } from "@/types";
@@ -54,11 +54,20 @@ export default function WalletHomePage() {
       <ForestBackground />
       <div className="space-y-6">
         {/* 标题 */}
-        <header>
-          <h1 className="font-display text-3xl md:text-4xl text-forest-deep text-shadow-forest flex items-center gap-2">
-            <Wallet size={32} /> 我的零花钱
-          </h1>
-          <p className="text-forest-bark mt-1 text-sm">管理零花钱，学会理财小达人</p>
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-3xl md:text-4xl text-forest-deep text-shadow-forest flex items-center gap-2">
+              <Wallet size={32} /> 我的零花钱
+            </h1>
+            <p className="text-forest-bark mt-1 text-sm">管理零花钱，学会理财小达人</p>
+          </div>
+          <button
+            onClick={() => navigate("/allowance/parent-settings")}
+            className="p-2 rounded-xl glass-btn hover:bg-white/40 transition-colors"
+            title="家长设置"
+          >
+            <Settings size={20} className="text-forest-mid" />
+          </button>
         </header>
 
         {/* 余额总览卡片 */}
