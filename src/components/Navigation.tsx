@@ -1,12 +1,13 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
-import { ListChecks, Timer, Coins, ClipboardList, TrendingUp, Settings } from "lucide-react";
+import { ListChecks, Timer, Coins, ClipboardList, TrendingUp, Settings, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 const NAV_ITEMS = [
   { path: "/", label: "任务清单", icon: ListChecks, emoji: "📝" },
   { path: "/pomodoro", label: "番茄专注", icon: Timer, emoji: "🍅" },
   { path: "/rewards", label: "星愿币", icon: Coins, emoji: "⭐" },
+  { path: "/allowance", label: "零用钱", icon: Wallet, emoji: "💰" },
   { path: "/scores", label: "成绩单", icon: ClipboardList, emoji: "📊" },
   { path: "/analysis", label: "成绩分析", icon: TrendingUp, emoji: "📈" },
 ];
@@ -37,7 +38,7 @@ export default function Navigation() {
           {/* 导航项 */}
           <nav className="flex-1 flex flex-col gap-2">
             {NAV_ITEMS.map((item) => {
-              const active = location.pathname === item.path;
+              const active = item.path === "/" ? location.pathname === "/" : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
               const Icon = item.icon;
               return (
                 <button
@@ -91,7 +92,7 @@ export default function Navigation() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 p-3">
         <div className="glass-card flex justify-around p-2">
           {NAV_ITEMS.map((item) => {
-            const active = location.pathname === item.path;
+            const active = item.path === "/" ? location.pathname === "/" : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
             const Icon = item.icon;
             return (
               <button

@@ -177,6 +177,12 @@ export interface AppData {
   examRecords: ExamRecord[];
   balance: number;
   waterLog: Record<string, number>;
+  // 零用钱财商模块
+  wallet: WalletAccount;
+  allowanceTransactions: AllowanceTransaction[];
+  wishItems: WishItem[];
+  allowanceAchievements: AllowanceAchievement[];
+  allowanceSettings: AllowanceSettings;
 }
 
 // 象限配置
@@ -213,6 +219,95 @@ export const QUADRANT_CONFIG: Record<
     emoji: "🍃",
   },
 };
+
+// ===== 零用钱财商模块 =====
+
+// 零用钱交易类型
+export type AllowanceTransactionType = "income" | "expense";
+
+// 零用钱收入来源
+export type IncomeSource = "exchange" | "parent" | "other";
+
+// 零用钱支出分类
+export type ExpenseCategory =
+  | "学习用品"
+  | "零食饮料"
+  | "玩具娱乐"
+  | "餐饮交通"
+  | "礼物捐赠"
+  | "其他";
+
+// 消费心情
+export type SpendMood = "happy" | "normal" | "regret";
+
+// 审核状态
+export type ReviewStatus = "pending" | "approved" | "rejected";
+
+// 三金账户类型
+export type AccountType = "consume" | "save" | "share";
+
+// 钱包账户
+export interface WalletAccount {
+  totalBalance: number;      // 总余额（元）
+  consumeBalance: number;    // 消费金余额
+  saveBalance: number;       // 储蓄金余额
+  shareBalance: number;      // 分享金余额
+  totalEarned: number;       // 累计赚取
+  totalSpent: number;        // 累计支出
+}
+
+// 零用钱交易记录
+export interface AllowanceTransaction {
+  id: string;
+  type: AllowanceTransactionType;
+  category: string;
+  amount: number;            // 金额（元），正数
+  title: string;             // 项目名称
+  date: string;              // ISO日期
+  remark: string;            // 备注
+  mood: SpendMood | null;    // 消费心情
+  source: IncomeSource | null; // 收入来源
+  account: AccountType;      // 所属账户
+  parentComment: string;     // 家长评语
+  reviewStatus: ReviewStatus | null; // 审核状态
+  createdAt: string;
+}
+
+// 愿望目标
+export interface WishItem {
+  id: string;
+  title: string;
+  targetAmount: number;
+  savedAmount: number;
+  status: "active" | "completed";
+  createdAt: string;
+  completedAt: string | null;
+}
+
+// 零用钱设置
+export interface AllowanceSettings {
+  exchangeRate: number;          // 兑换汇率：N星愿币=1元
+  singleExchangeLimit: number;   // 单次兑换上限（元）
+  dailyExchangeLimit: number;    // 每日兑换次数上限
+  weeklyExchangeLimit: number;   // 每周兑换总金额上限（元）
+  requireReview: boolean;        // 兑换是否需要审核
+  consumeRatio: number;          // 消费金比例（0-1）
+  saveRatio: number;             // 储蓄金比例（0-1）
+  shareRatio: number;            // 分享金比例（0-1）
+  alertThreshold: number;        // 消费预警阈值（元）
+  parentPassword: string;        // 家长密码（4位数字）
+}
+
+// 成就徽章
+export interface AllowanceAchievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  rewardStarCoins: number;
+  unlockedAt: string | null;
+}
 
 // 预设番茄钟时长(分钟)
 export const POMODORO_PRESETS = [5, 10, 15, 25];

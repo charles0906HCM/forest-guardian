@@ -8,6 +8,11 @@ import type {
   StarCoinTransaction,
   TransactionType,
   SubjectItem,
+  AllowanceTransaction,
+  AllowanceSettings,
+  SpendMood,
+  IncomeSource,
+  AccountType,
 } from "@/types";
 import { OTHER_SUBJECT_ID } from "@/types";
 import { loadData, saveData } from "@/utils/storage";
@@ -70,6 +75,19 @@ interface AppStore extends AppData {
     description: string
   ) => void;
   persist: () => void;
+
+  // 零用钱相关
+  exchangeStarCoins: (starCoinAmount: number) => boolean;
+  addAllowanceTransaction: (transaction: Omit<AllowanceTransaction, "id" | "createdAt">) => void;
+  recordExpense: (title: string, amount: number, category: string, account: AccountType, mood?: SpendMood, remark?: string) => void;
+  recordIncome: (amount: number, source: IncomeSource, title: string) => void;
+  updateAllowanceSettings: (settings: Partial<AllowanceSettings>) => void;
+  reviewExchange: (transactionId: string, approved: boolean) => void;
+  grantAllowance: (amount: number, reason: string) => void;
+  addWishItem: (title: string, targetAmount: number) => void;
+  updateWishProgress: (id: string, amount: number) => void;
+  setMood: (transactionId: string, mood: SpendMood) => void;
+  addParentComment: (transactionId: string, comment: string) => void;
   
   // 数据导出导入
   exportData: () => string;
@@ -108,6 +126,11 @@ export const useAppStore = create<AppStore>((set, get) => {
             examRecords: s.examRecords,
             balance: s.balance,
             waterLog: s.waterLog,
+            wallet: s.wallet,
+            allowanceTransactions: s.allowanceTransactions,
+            wishItems: s.wishItems,
+            allowanceAchievements: s.allowanceAchievements,
+            allowanceSettings: s.allowanceSettings,
           },
           s.syncCode
         ).catch(() => {
@@ -121,6 +144,7 @@ export const useAppStore = create<AppStore>((set, get) => {
   const mergeRemoteData = (remote: AppData): AppData => {
     const local = get();
     const calculatedBalance = (remote.transactions || []).reduce((sum, tx) => sum + tx.amount, 0);
+    const defaults = loadData();
     return {
       tasks: remote.tasks || local.tasks,
       subjects: (remote.subjects && remote.subjects.length > 0 ? remote.subjects : local.subjects),
@@ -131,6 +155,11 @@ export const useAppStore = create<AppStore>((set, get) => {
       examRecords: remote.examRecords || local.examRecords,
       balance: calculatedBalance,
       waterLog: remote.waterLog ?? local.waterLog ?? {},
+      wallet: remote.wallet ?? local.wallet ?? defaults.wallet,
+      allowanceTransactions: remote.allowanceTransactions ?? local.allowanceTransactions ?? [],
+      wishItems: remote.wishItems ?? local.wishItems ?? [],
+      allowanceAchievements: remote.allowanceAchievements ?? local.allowanceAchievements ?? [],
+      allowanceSettings: remote.allowanceSettings ?? local.allowanceSettings ?? defaults.allowanceSettings,
     };
   };
 
@@ -147,6 +176,11 @@ export const useAppStore = create<AppStore>((set, get) => {
       examRecords: s.examRecords,
       balance: s.balance,
       waterLog: s.waterLog,
+      wallet: s.wallet,
+      allowanceTransactions: s.allowanceTransactions,
+      wishItems: s.wishItems,
+      allowanceAchievements: s.allowanceAchievements,
+      allowanceSettings: s.allowanceSettings,
     });
     scheduleSyncPush();
   };
@@ -171,6 +205,257 @@ export const useAppStore = create<AppStore>((set, get) => {
     }));
   };
 
+  // 星愿币兑换零用钱
+  const exchangeStarCoins = (starCoinAmount: number): boolean => {
+    const s = get();
+    const settings = s.allowanceSettings;
+    const rate = settings.exchangeRate;
+    if (rate <= 0) return false;
+    const yuanAmount = starCoinAmount / rate;
+
+    // 检查余额
+    if (starCoinAmount > s.balance) return false;
+
+    // 检查单次限额
+    if (yuanAmount > settings.singleExchangeLimit) return false;
+
+    // 检查每日限额
+    const today = todayISO();
+    const todayExchanges = s.allowanceTransactions.filter(
+      t => t.source === "exchange" && t.date === today && t.reviewStatus !== "rejected"
+    );
+    if (todayExchanges.length >= settings.dailyExchangeLimit) return false;
+
+    // 检查每周限额
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const weekStartStr = weekStart.toISOString().slice(0, 10);
+    const weekExchanges = s.allowanceTransactions.filter(
+      t => t.source === "exchange" && t.date >= weekStartStr && t.reviewStatus !== "rejected"
+    );
+    const weekTotal = weekExchanges.reduce((sum, t) => sum + t.amount, 0);
+    if (weekTotal + yuanAmount > settings.weeklyExchangeLimit) return false;
+
+    // 扣减星愿币
+    set({ balance: s.balance - starCoinAmount });
+    addTransaction("habit-good", "exchange", -starCoinAmount, `兑换${yuanAmount.toFixed(2)}元零用钱`);
+
+    if (settings.requireReview) {
+      // 待审核
+      get().addAllowanceTransaction({
+        type: "income",
+        category: "星愿兑换",
+        amount: yuanAmount,
+        title: `星愿币兑换（待审核）`,
+        date: today,
+        remark: `${starCoinAmount}星愿币`,
+        mood: null,
+        source: "exchange",
+        account: "consume",
+        parentComment: "",
+        reviewStatus: "pending",
+      });
+    } else {
+      // 直接到账
+      get().recordIncome(yuanAmount, "exchange", `星愿币兑换`);
+    }
+
+    persist();
+    return true;
+  };
+
+  // 添加零用钱交易记录
+  const addAllowanceTransactionImpl = (transaction: Omit<AllowanceTransaction, "id" | "createdAt">) => {
+    set((s) => ({
+      allowanceTransactions: [...s.allowanceTransactions, { ...transaction, id: genId(), createdAt: new Date().toISOString() }],
+    }));
+  };
+
+  // 记录支出
+  const recordExpense = (title: string, amount: number, category: string, account: AccountType, mood?: SpendMood, remark?: string) => {
+    const s = get();
+    const wallet = s.wallet;
+
+    // 检查对应账户余额
+    const accountBalance = account === "consume" ? wallet.consumeBalance : account === "save" ? wallet.saveBalance : wallet.shareBalance;
+    if (amount > accountBalance) return;
+
+    set({
+      wallet: {
+        ...wallet,
+        totalBalance: Math.round((wallet.totalBalance - amount) * 100) / 100,
+        [`${account}Balance`]: Math.round((accountBalance - amount) * 100) / 100,
+        totalSpent: Math.round((wallet.totalSpent + amount) * 100) / 100,
+      },
+    });
+
+    addAllowanceTransactionImpl({
+      type: "expense",
+      category,
+      amount,
+      title,
+      date: todayISO(),
+      remark: remark || "",
+      mood: mood || null,
+      source: null,
+      account,
+      parentComment: "",
+      reviewStatus: null,
+    });
+
+    persist();
+  };
+
+  // 记录收入（自动拆分三金）
+  const recordIncome = (amount: number, source: IncomeSource, title: string) => {
+    const s = get();
+    const settings = s.allowanceSettings;
+    const wallet = s.wallet;
+
+    const consumeAmount = Math.round(amount * settings.consumeRatio * 100) / 100;
+    const saveAmount = Math.round(amount * settings.saveRatio * 100) / 100;
+    const shareAmount = Math.round((amount - consumeAmount - saveAmount) * 100) / 100; // 剩余归分享金，避免精度丢失
+
+    set({
+      wallet: {
+        ...wallet,
+        totalBalance: Math.round((wallet.totalBalance + amount) * 100) / 100,
+        consumeBalance: Math.round((wallet.consumeBalance + consumeAmount) * 100) / 100,
+        saveBalance: Math.round((wallet.saveBalance + saveAmount) * 100) / 100,
+        shareBalance: Math.round((wallet.shareBalance + shareAmount) * 100) / 100,
+        totalEarned: Math.round((wallet.totalEarned + amount) * 100) / 100,
+      },
+    });
+
+    addAllowanceTransactionImpl({
+      type: "income",
+      category: source === "exchange" ? "星愿兑换" : source === "parent" ? "家长发放" : "其他收入",
+      amount,
+      title,
+      date: todayISO(),
+      remark: "",
+      mood: null,
+      source,
+      account: "consume",
+      parentComment: "",
+      reviewStatus: null,
+    });
+
+    persist();
+  };
+
+  // 更新零用钱设置
+  const updateAllowanceSettings = (settings: Partial<AllowanceSettings>) => {
+    set((s) => ({
+      allowanceSettings: { ...s.allowanceSettings, ...settings },
+    }));
+    persist();
+  };
+
+  // 审核兑换
+  const reviewExchange = (transactionId: string, approved: boolean) => {
+    const s = get();
+    const transaction = s.allowanceTransactions.find(t => t.id === transactionId);
+    if (!transaction || transaction.reviewStatus !== "pending") return;
+
+    if (approved) {
+      // 审核通过，到账
+      const wallet = s.wallet;
+      const settings = s.allowanceSettings;
+      const amount = transaction.amount;
+      const consumeAmount = Math.round(amount * settings.consumeRatio * 100) / 100;
+      const saveAmount = Math.round(amount * settings.saveRatio * 100) / 100;
+      const shareAmount = Math.round((amount - consumeAmount - saveAmount) * 100) / 100;
+
+      set({
+        wallet: {
+          ...wallet,
+          totalBalance: Math.round((wallet.totalBalance + amount) * 100) / 100,
+          consumeBalance: Math.round((wallet.consumeBalance + consumeAmount) * 100) / 100,
+          saveBalance: Math.round((wallet.saveBalance + saveAmount) * 100) / 100,
+          shareBalance: Math.round((wallet.shareBalance + shareAmount) * 100) / 100,
+          totalEarned: Math.round((wallet.totalEarned + amount) * 100) / 100,
+        },
+        allowanceTransactions: s.allowanceTransactions.map(t =>
+          t.id === transactionId ? { ...t, reviewStatus: "approved", title: t.title.replace("（待审核）", "") } : t
+        ),
+      });
+    } else {
+      // 驳回，退还星愿币
+      const starCoinAmount = Math.round(transaction.amount * s.allowanceSettings.exchangeRate);
+      set({
+        balance: s.balance + starCoinAmount,
+        allowanceTransactions: s.allowanceTransactions.map(t =>
+          t.id === transactionId ? { ...t, reviewStatus: "rejected" } : t
+        ),
+      });
+    }
+    persist();
+  };
+
+  // 家长发放零用钱
+  const grantAllowance = (amount: number, reason: string) => {
+    recordIncome(amount, "parent", reason || "家长发放零用钱");
+  };
+
+  // 添加愿望
+  const addWishItem = (title: string, targetAmount: number) => {
+    set((s) => ({
+      wishItems: [...s.wishItems, {
+        id: genId(),
+        title,
+        targetAmount,
+        savedAmount: 0,
+        status: "active",
+        createdAt: new Date().toISOString(),
+        completedAt: null,
+      }],
+    }));
+    persist();
+  };
+
+  // 更新愿望进度
+  const updateWishProgress = (id: string, amount: number) => {
+    const s = get();
+    const wish = s.wishItems.find(w => w.id === id);
+    if (!wish) return;
+
+    const newSavedAmount = Math.round((wish.savedAmount + amount) * 100) / 100;
+    const isCompleted = newSavedAmount >= wish.targetAmount;
+
+    set({
+      wishItems: s.wishItems.map(w =>
+        w.id === id ? {
+          ...w,
+          savedAmount: newSavedAmount,
+          status: isCompleted ? "completed" : "active",
+          completedAt: isCompleted ? new Date().toISOString() : null,
+        } : w
+      ),
+    });
+    persist();
+  };
+
+  // 设置消费心情
+  const setMood = (transactionId: string, mood: SpendMood) => {
+    set((s) => ({
+      allowanceTransactions: s.allowanceTransactions.map(t =>
+        t.id === transactionId ? { ...t, mood } : t
+      ),
+    }));
+    persist();
+  };
+
+  // 家长添加评语
+  const addParentComment = (transactionId: string, comment: string) => {
+    set((s) => ({
+      allowanceTransactions: s.allowanceTransactions.map(t =>
+        t.id === transactionId ? { ...t, parentComment: comment } : t
+      ),
+    }));
+    persist();
+  };
+
   const today = todayISO();
   const initialTodayWaterCount = initialData.waterLog[today] || 0;
 
@@ -181,6 +466,17 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     addTransaction,
     persist,
+    exchangeStarCoins,
+    addAllowanceTransaction: addAllowanceTransactionImpl,
+    recordExpense,
+    recordIncome,
+    updateAllowanceSettings,
+    reviewExchange,
+    grantAllowance,
+    addWishItem,
+    updateWishProgress,
+    setMood,
+    addParentComment,
 
     addSubject: (subject) => {
       const newSubject: SubjectItem = {
@@ -443,6 +739,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         examRecords: s.examRecords,
         balance: s.balance,
         waterLog: s.waterLog,
+        wallet: s.wallet,
+        allowanceTransactions: s.allowanceTransactions,
+        wishItems: s.wishItems,
+        allowanceAchievements: s.allowanceAchievements,
+        allowanceSettings: s.allowanceSettings,
       }, null, 2);
     },
     
@@ -464,6 +765,11 @@ export const useAppStore = create<AppStore>((set, get) => {
           balance: data.balance || 0,
           waterLog,
           todayWaterCount,
+          wallet: data.wallet ?? defaults.wallet,
+          allowanceTransactions: data.allowanceTransactions ?? [],
+          wishItems: data.wishItems ?? [],
+          allowanceAchievements: data.allowanceAchievements ?? [],
+          allowanceSettings: data.allowanceSettings ?? defaults.allowanceSettings,
         });
         persist();
         return true;
@@ -491,6 +797,11 @@ export const useAppStore = create<AppStore>((set, get) => {
           examRecords: get().examRecords,
           balance: get().balance,
           waterLog: get().waterLog,
+          wallet: get().wallet,
+          allowanceTransactions: get().allowanceTransactions,
+          wishItems: get().wishItems,
+          allowanceAchievements: get().allowanceAchievements,
+          allowanceSettings: get().allowanceSettings,
         },
         code
       );
@@ -556,6 +867,11 @@ export const useAppStore = create<AppStore>((set, get) => {
           examRecords: get().examRecords,
           balance: get().balance,
           waterLog: get().waterLog,
+          wallet: get().wallet,
+          allowanceTransactions: get().allowanceTransactions,
+          wishItems: get().wishItems,
+          allowanceAchievements: get().allowanceAchievements,
+          allowanceSettings: get().allowanceSettings,
         },
         code
       );
@@ -584,6 +900,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         balance: data.balance || 0,
         waterLog,
         todayWaterCount,
+        wallet: data.wallet ?? defaults.wallet,
+        allowanceTransactions: data.allowanceTransactions ?? [],
+        wishItems: data.wishItems ?? [],
+        allowanceAchievements: data.allowanceAchievements ?? [],
+        allowanceSettings: data.allowanceSettings ?? defaults.allowanceSettings,
         syncStatus: "connected",
       });
       // 同步后也保存到本地
@@ -597,6 +918,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         examRecords: data.examRecords || [],
         balance: data.balance || 0,
         waterLog: data.waterLog ?? {},
+        wallet: data.wallet ?? defaults.wallet,
+        allowanceTransactions: data.allowanceTransactions ?? [],
+        wishItems: data.wishItems ?? [],
+        allowanceAchievements: data.allowanceAchievements ?? [],
+        allowanceSettings: data.allowanceSettings ?? defaults.allowanceSettings,
       });
     },
   };

@@ -113,6 +113,29 @@ export function getDefaultData(): AppData {
     examRecords: [],
     balance: 0,
     waterLog: {},
+    wallet: {
+      totalBalance: 0,
+      consumeBalance: 0,
+      saveBalance: 0,
+      shareBalance: 0,
+      totalEarned: 0,
+      totalSpent: 0,
+    },
+    allowanceTransactions: [],
+    wishItems: [],
+    allowanceAchievements: [],
+    allowanceSettings: {
+      exchangeRate: 10,
+      singleExchangeLimit: 50,
+      dailyExchangeLimit: 3,
+      weeklyExchangeLimit: 100,
+      requireReview: false,
+      consumeRatio: 0.5,
+      saveRatio: 0.3,
+      shareRatio: 0.2,
+      alertThreshold: 20,
+      parentPassword: "0000",
+    },
   };
 }
 
@@ -150,6 +173,11 @@ export function loadData(): AppData {
       rewards: parsed.rewards ?? defaults.rewards,
       waterLog: parsed.waterLog ?? {},
       tasks: (parsed.tasks ?? []).map(t => ({ ...t, repeatDays: t.repeatDays ?? [] })),
+      wallet: parsed.wallet ?? defaults.wallet,
+      allowanceTransactions: parsed.allowanceTransactions ?? [],
+      wishItems: parsed.wishItems ?? [],
+      allowanceAchievements: parsed.allowanceAchievements ?? [],
+      allowanceSettings: parsed.allowanceSettings ?? defaults.allowanceSettings,
     };
   } catch {
     return getDefaultData();
