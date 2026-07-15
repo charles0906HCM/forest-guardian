@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
-import { ListChecks, Timer, Coins, ClipboardList, TrendingUp, Settings, Wallet } from "lucide-react";
+import { ListChecks, Timer, Coins, ClipboardList, Settings, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 const NAV_ITEMS = [
@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { path: "/rewards", label: "星愿币", icon: Coins, emoji: "⭐" },
   { path: "/allowance", label: "零用钱", icon: Wallet, emoji: "💰" },
   { path: "/scores", label: "成绩单", icon: ClipboardList, emoji: "📊" },
-  { path: "/analysis", label: "成绩分析", icon: TrendingUp, emoji: "📈" },
 ];
 
 const SETTINGS_PATH = "/settings";
