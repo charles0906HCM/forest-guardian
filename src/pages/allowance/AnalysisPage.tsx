@@ -189,7 +189,7 @@ export default function AllowanceAnalysisPage() {
       <CategoryPieChart
         categories={categoryData}
         onClick={(category) => {
-          navigate(`/allowance/detail?category=${encodeURIComponent(category)}`);
+          navigate(`/allowance/records?category=${encodeURIComponent(category)}`);
         }}
       />
 

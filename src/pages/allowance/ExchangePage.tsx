@@ -241,7 +241,7 @@ export default function ExchangePage() {
               <button
                 onClick={() => {
                   setShowResultModal(null);
-                  if (showResultModal === "success") navigate("/allowance/wallet");
+                  if (showResultModal === "success") navigate("/allowance");
                 }}
                 className="w-full mt-5 py-2.5 rounded-2xl bg-[#4CC9F0] text-white font-medium text-sm hover:bg-[#4CC9F0]/90 transition-colors"
               >

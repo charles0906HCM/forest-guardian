@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { clsx } from "clsx";
-import { Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, BookOpen, Settings } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, BookOpen, Settings, BarChart3, Target, Trophy, Shield } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import ForestBackground from "@/components/ForestBackground";
 import type { AllowanceTransaction, AccountType } from "@/types";
@@ -130,7 +130,7 @@ export default function WalletHomePage() {
           </h2>
           <div className="grid grid-cols-3 gap-3">
             <button
-              onClick={() => navigate("/allowance/record?mode=expense")}
+              onClick={() => navigate("/allowance/add-record?mode=expense")}
               className="glass-card p-4 flex flex-col items-center gap-2 hover:scale-[1.02] transition-transform"
             >
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "rgba(247,127,0,0.15)" }}>
@@ -139,7 +139,7 @@ export default function WalletHomePage() {
               <span className="text-sm font-medium text-forest-deep">记支出</span>
             </button>
             <button
-              onClick={() => navigate("/allowance/record?mode=income")}
+              onClick={() => navigate("/allowance/add-record?mode=income")}
               className="glass-card p-4 flex flex-col items-center gap-2 hover:scale-[1.02] transition-transform"
             >
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "rgba(82,183,136,0.15)" }}>
@@ -284,6 +284,43 @@ export default function WalletHomePage() {
             </p>
           </div>
         )}
+
+        {/* 功能入口区 */}
+        <section>
+          <h2 className="font-display text-xl text-forest-deep mb-3 flex items-center gap-2">
+            🗺️ 更多功能
+          </h2>
+          <div className="grid grid-cols-4 gap-3">
+            <button
+              onClick={() => navigate("/allowance/analysis")}
+              className="glass-card p-3 flex flex-col items-center gap-1.5 hover:scale-[1.02] transition-transform"
+            >
+              <BarChart3 size={22} className="text-[#4CC9F0]" />
+              <span className="text-xs font-medium text-forest-deep">财商分析</span>
+            </button>
+            <button
+              onClick={() => navigate("/allowance/wishes")}
+              className="glass-card p-3 flex flex-col items-center gap-1.5 hover:scale-[1.02] transition-transform"
+            >
+              <Target size={22} className="text-[#FFB703]" />
+              <span className="text-xs font-medium text-forest-deep">愿望清单</span>
+            </button>
+            <button
+              onClick={() => navigate("/allowance/achievements")}
+              className="glass-card p-3 flex flex-col items-center gap-1.5 hover:scale-[1.02] transition-transform"
+            >
+              <Trophy size={22} className="text-[#E76F51]" />
+              <span className="text-xs font-medium text-forest-deep">成就徽章</span>
+            </button>
+            <button
+              onClick={() => navigate("/allowance/parent-manage")}
+              className="glass-card p-3 flex flex-col items-center gap-1.5 hover:scale-[1.02] transition-transform"
+            >
+              <Shield size={22} className="text-[#457B9D]" />
+              <span className="text-xs font-medium text-forest-deep">家长管理</span>
+            </button>
+          </div>
+        </section>
       </div>
     </>
   );

@@ -106,7 +106,7 @@ export default function AddRecordPage() {
     }
 
     recordExpense(title.trim(), amount, category, account, mood || undefined, remark || undefined);
-    navigate("/allowance/wallet");
+    navigate("/allowance");
   };
 
   const handleSubmitIncome = () => {
@@ -121,7 +121,7 @@ export default function AddRecordPage() {
       return;
     }
     recordIncome(incomeAmount, incomeSource, incomeTitle.trim());
-    navigate("/allowance/wallet");
+    navigate("/allowance");
   };
 
   return (
@@ -358,7 +358,7 @@ export default function AddRecordPage() {
                       onClick={() => {
                         setShowOpportunityTip(false);
                         recordExpense(title.trim(), amount, category, account, mood || undefined, remark || undefined);
-                        navigate("/allowance/wallet");
+                        navigate("/allowance");
                       }}
                       className="py-2.5 rounded-2xl bg-[#F77F00] text-white font-medium text-sm hover:bg-[#F77F00]/90 transition-colors"
                     >
