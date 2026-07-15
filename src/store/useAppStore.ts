@@ -238,7 +238,17 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     // 扣减星愿币
     set({ balance: s.balance - starCoinAmount });
-    addTransaction("habit-good", "exchange", -starCoinAmount, `兑换${yuanAmount.toFixed(2)}元零用钱`);
+    
+    // 记录星愿币交易（直接记录，不通过addTransaction避免重复扣减）
+    const starCoinTx: StarCoinTransaction = {
+      id: genId(),
+      type: "habit-good",
+      sourceId: "exchange",
+      amount: -starCoinAmount,
+      description: `兑换${yuanAmount.toFixed(2)}元零用钱`,
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({ transactions: [starCoinTx, ...state.transactions] }));
 
     if (settings.requireReview) {
       // 待审核
