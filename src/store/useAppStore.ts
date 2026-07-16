@@ -16,7 +16,7 @@ import type {
   WishItem,
 } from "@/types";
 import { OTHER_SUBJECT_ID } from "@/types";
-import { loadData, saveData } from "@/utils/storage";
+import { loadData, saveData, migrateAllowanceTransactions } from "@/utils/storage";
 import { genId, todayISO, isTaskCompletedOnDate } from "@/utils/date";
 import { isTargetMet } from "@/utils/scoreStats";
 import {
@@ -148,6 +148,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     const local = get();
     const calculatedBalance = (remote.transactions || []).reduce((sum, tx) => sum + tx.amount, 0);
     const defaults = loadData();
+    const settings = remote.allowanceSettings ?? local.allowanceSettings ?? defaults.allowanceSettings;
+    // 云端数据可能也是旧版格式，同步迁移
+    const remoteAllowanceTransactions = remote.allowanceTransactions ?? local.allowanceTransactions ?? [];
+    const hasOldIncome = remoteAllowanceTransactions.some(t => t.type === "income" && t.account === "consume" && !remoteAllowanceTransactions.some(s => s.type === "income" && s.account === "save"));
+    const allowanceTransactions = hasOldIncome
+      ? migrateAllowanceTransactions(remoteAllowanceTransactions, settings)
+      : remoteAllowanceTransactions;
     return {
       tasks: remote.tasks || local.tasks,
       subjects: (remote.subjects && remote.subjects.length > 0 ? remote.subjects : local.subjects),
@@ -159,10 +166,10 @@ export const useAppStore = create<AppStore>((set, get) => {
       balance: calculatedBalance,
       waterLog: remote.waterLog ?? local.waterLog ?? {},
       wallet: remote.wallet ?? local.wallet ?? defaults.wallet,
-      allowanceTransactions: remote.allowanceTransactions ?? local.allowanceTransactions ?? [],
+      allowanceTransactions,
       wishItems: remote.wishItems ?? local.wishItems ?? [],
       allowanceAchievements: remote.allowanceAchievements ?? local.allowanceAchievements ?? [],
-      allowanceSettings: remote.allowanceSettings ?? local.allowanceSettings ?? defaults.allowanceSettings,
+      allowanceSettings: settings,
     };
   };
 
