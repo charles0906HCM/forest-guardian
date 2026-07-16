@@ -13,6 +13,7 @@ import type {
   SpendMood,
   IncomeSource,
   AccountType,
+  WishItem,
 } from "@/types";
 import { OTHER_SUBJECT_ID } from "@/types";
 import { loadData, saveData } from "@/utils/storage";
@@ -79,13 +80,15 @@ interface AppStore extends AppData {
   // 零用钱相关
   exchangeStarCoins: (starCoinAmount: number) => boolean;
   addAllowanceTransaction: (transaction: Omit<AllowanceTransaction, "id" | "createdAt">) => void;
-  recordExpense: (title: string, amount: number, category: string, account: AccountType, mood?: SpendMood, remark?: string) => void;
+  recordExpense: (title: string, amount: number, category: string, account: AccountType | AccountType[], mood?: SpendMood, remark?: string) => void;
   recordIncome: (amount: number, source: IncomeSource, title: string) => void;
   updateAllowanceSettings: (settings: Partial<AllowanceSettings>) => void;
   reviewExchange: (transactionId: string, approved: boolean) => void;
   grantAllowance: (amount: number, reason: string) => void;
   addWishItem: (title: string, targetAmount: number) => void;
   updateWishProgress: (id: string, amount: number) => void;
+  updateWishItem: (id: string, updates: Partial<Pick<WishItem, "title" | "targetAmount">>) => void;
+  deleteWishItem: (id: string) => void;
   setMood: (transactionId: string, mood: SpendMood) => void;
   addParentComment: (transactionId: string, comment: string) => void;
   
@@ -282,19 +285,35 @@ export const useAppStore = create<AppStore>((set, get) => {
   };
 
   // 记录支出
-  const recordExpense = (title: string, amount: number, category: string, account: AccountType, mood?: SpendMood, remark?: string) => {
+  const recordExpense = (title: string, amount: number, category: string, account: AccountType | AccountType[], mood?: SpendMood, remark?: string) => {
     const s = get();
     const wallet = s.wallet;
 
-    // 检查对应账户余额
-    const accountBalance = account === "consume" ? wallet.consumeBalance : account === "save" ? wallet.saveBalance : wallet.shareBalance;
-    if (amount > accountBalance) return;
+    // 支持 Array<AccountType> 多账户依次扣款
+    const accounts = Array.isArray(account) ? account : [account];
+    let remainingAmount = amount;
+    const walletUpdates: Record<string, number> = {};
+    const accountBreakdown: string[] = [];
+
+    for (const acc of accounts) {
+      if (remainingAmount <= 0) break;
+      const accBalance = acc === "consume" ? wallet.consumeBalance : acc === "save" ? wallet.saveBalance : wallet.shareBalance;
+      if (accBalance <= 0) continue;
+      const deduct = Math.min(accBalance, remainingAmount);
+      walletUpdates[`${acc}Balance`] = Math.round((accBalance - deduct) * 100) / 100;
+      const accLabel = acc === "consume" ? "消费金" : acc === "save" ? "储蓄金" : "分享金";
+      accountBreakdown.push(`${accLabel}扣除${deduct.toFixed(2)}元`);
+      remainingAmount = Math.round((remainingAmount - deduct) * 100) / 100;
+    }
+
+    // 如果还有剩余金额未扣完，说明总余额不足
+    if (remainingAmount > 0) return;
 
     set({
       wallet: {
         ...wallet,
+        ...walletUpdates,
         totalBalance: Math.round((wallet.totalBalance - amount) * 100) / 100,
-        [`${account}Balance`]: Math.round((accountBalance - amount) * 100) / 100,
         totalSpent: Math.round((wallet.totalSpent + amount) * 100) / 100,
       },
     });
@@ -305,10 +324,10 @@ export const useAppStore = create<AppStore>((set, get) => {
       amount,
       title,
       date: todayISO(),
-      remark: remark || "",
+      remark: remark ? `${remark}（${accountBreakdown.join("，")}）` : accountBreakdown.join("，"),
       mood: mood || null,
       source: null,
-      account,
+      account: accounts[0],
       parentComment: "",
       reviewStatus: null,
     });
@@ -424,6 +443,22 @@ export const useAppStore = create<AppStore>((set, get) => {
     persist();
   };
 
+  // 编辑愿望（修改名称或目标金额）
+  const updateWishItem = (id: string, updates: Partial<Pick<WishItem, "title" | "targetAmount">>) => {
+    set((s) => ({
+      wishItems: s.wishItems.map(w => w.id === id ? { ...w, ...updates } : w),
+    }));
+    persist();
+  };
+
+  // 删除愿望
+  const deleteWishItem = (id: string) => {
+    set((s) => ({
+      wishItems: s.wishItems.filter(w => w.id !== id),
+    }));
+    persist();
+  };
+
   // 更新愿望进度
   const updateWishProgress = (id: string, amount: number) => {
     const s = get();
@@ -485,6 +520,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     grantAllowance,
     addWishItem,
     updateWishProgress,
+    updateWishItem,
+    deleteWishItem,
     setMood,
     addParentComment,
 

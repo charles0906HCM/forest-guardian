@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { clsx } from "clsx";
-import { Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, BookOpen, Settings, BarChart3, Target, Trophy, Shield } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, RefreshCw, BookOpen, Settings, BarChart3, Target, Trophy, Shield, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import ForestBackground from "@/components/ForestBackground";
 import type { AllowanceTransaction, AccountType } from "@/types";
@@ -31,6 +31,9 @@ export default function WalletHomePage() {
 
   // 消费反思提示：支出满24小时的记录弹出反思提示
   const [reflectionTx, setReflectionTx] = useState<AllowanceTransaction | null>(null);
+
+  // 三金账户明细弹窗
+  const [selectedAccount, setSelectedAccount] = useState<AccountType | null>(null);
 
   useEffect(() => {
     const now = Date.now();
@@ -106,7 +109,7 @@ export default function WalletHomePage() {
               return (
                 <button
                   key={type}
-                  onClick={() => navigate(`/allowance/account/${type}`)}
+                  onClick={() => setSelectedAccount(type)}
                   className="glass-card p-4 text-center hover:scale-[1.02] transition-transform"
                 >
                   <div className="text-3xl mb-1">{config.icon}</div>
@@ -272,6 +275,15 @@ export default function WalletHomePage() {
           </div>
         )}
 
+        {/* 三金账户明细弹窗 */}
+        {selectedAccount && (
+          <AccountDetailModal
+            account={selectedAccount}
+            transactions={allowanceTransactions}
+            onClose={() => setSelectedAccount(null)}
+          />
+        )}
+
         {/* 机会成本提示：存在进行中愿望 */}
         {activeWishes.length > 0 && (
           <div className="glass-card p-4 border-l-4 border-[#FFB703]">
@@ -345,6 +357,98 @@ function StatPill({
         <span className="font-display text-xl" style={{ color }}>
           {value.toFixed(2)}
         </span>
+      </div>
+    </div>
+  );
+}
+
+function AccountDetailModal({
+  account,
+  transactions,
+  onClose,
+}: {
+  account: AccountType;
+  transactions: AllowanceTransaction[];
+  onClose: () => void;
+}) {
+  const config = ACCOUNT_CONFIG[account];
+  const accountTransactions = transactions
+    .filter((t) => t.account === account)
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-forest-deep/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative glass-card w-full max-w-sm p-6 animate-slide-up">
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg text-forest-deep flex items-center gap-2">
+            <span className="text-2xl">{config.icon}</span>
+            {config.label}明细
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl hover:bg-white/40 transition-colors"
+            title="关闭"
+          >
+            <X size={18} className="text-forest-mid" />
+          </button>
+        </div>
+
+        {/* 交易列表 */}
+        {accountTransactions.length === 0 ? (
+          <p className="text-sm text-forest-bark text-center py-8">
+            还没有交易记录
+          </p>
+        ) : (
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {accountTransactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="flex items-center justify-between py-2 px-3 rounded-xl hover:bg-white/30 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">
+                    {tx.type === "income"
+                      ? "💰"
+                      : EXPENSE_CATEGORY_ICONS[tx.category] || "📦"}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm text-forest-deep truncate">
+                      {tx.title}
+                    </div>
+                    <div className="text-[10px] text-forest-bark">
+                      {new Date(tx.createdAt).toLocaleString("zh-CN", {
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <span
+                  className={clsx(
+                    "font-bold text-sm",
+                    tx.type === "income"
+                      ? "text-[#52B788]"
+                      : "text-[#F77F00]"
+                  )}
+                >
+                  {tx.type === "income" ? "+" : "-"}
+                  {tx.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

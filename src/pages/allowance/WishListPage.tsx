@@ -258,8 +258,15 @@ function WishDetailModal({
   onClose: () => void;
   onSave: (wish: WishItem, amount: number) => void;
 }) {
+  const updateWishItem = useAppStore((s) => s.updateWishItem);
+  const deleteWishItem = useAppStore((s) => s.deleteWishItem);
+
   const [depositAmount, setDepositAmount] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(wish.title);
+  const [editTarget, setEditTarget] = useState(String(wish.targetAmount));
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const percent = wish.targetAmount > 0 ? Math.min(100, Math.round((wish.savedAmount / wish.targetAmount) * 100)) : 0;
   const remaining = Math.max(0, wish.targetAmount - wish.savedAmount);
@@ -293,43 +300,116 @@ function WishDetailModal({
           <h3 className="font-display text-xl text-forest-deep">
             {isCompleted ? "🎉" : "💫"} {wish.title}
           </h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-white/50 flex items-center justify-center">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {!isCompleted && !isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-3 py-1 rounded-lg bg-white/40 text-xs text-forest-deep hover:bg-white/60 transition-colors"
+              >
+                ✏️ 编辑
+              </button>
+            )}
+            {!isCompleted && !isEditing && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-3 py-1 rounded-lg bg-[#F77F00]/15 text-xs text-[#F77F00] hover:bg-[#F77F00]/25 transition-colors"
+              >
+                🗑️ 删除
+              </button>
+            )}
+            <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-white/50 flex items-center justify-center">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        {/* 进度信息 */}
-        <div className="space-y-3 mb-5">
-          <div className="flex justify-between text-sm">
-            <span className="text-forest-bark">已存金额</span>
-            <span className="font-bold text-forest-deep">¥{wish.savedAmount.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-forest-bark">目标金额</span>
-            <span className="font-bold text-forest-deep">¥{wish.targetAmount.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-forest-bark">完成进度</span>
-            <span className="font-bold text-forest-mid">{percent}%</span>
-          </div>
-          <div className="h-3 rounded-full bg-white/40 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${percent}%`,
-                background: "linear-gradient(90deg, #2A9D8F, #06D6A0)",
-              }}
-            />
-          </div>
-          {isCompleted && wish.completedAt && (
-            <div className="text-center text-sm text-forest-mid font-medium">
-              🎉 完成于 {new Date(wish.completedAt).toLocaleDateString("zh-CN")}
+        {isEditing ? (
+          <div className="space-y-3 mb-5">
+            <div>
+              <label className="text-sm font-medium text-forest-deep">物品名称</label>
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-xl bg-white/50 border border-white/60 focus:outline-none focus:ring-2 focus:ring-forest-mid/50"
+              />
             </div>
-          )}
-        </div>
+            <div>
+              <label className="text-sm font-medium text-forest-deep">目标金额（元）</label>
+              <input
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={editTarget}
+                onChange={(e) => setEditTarget(e.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-xl bg-white/50 border border-white/60 focus:outline-none focus:ring-2 focus:ring-forest-mid/50"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditTitle(wish.title);
+                  setEditTarget(String(wish.targetAmount));
+                }}
+                className="flex-1 py-2 rounded-xl bg-white/40 text-forest-bark text-sm font-medium hover:bg-white/60 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const newTitle = editTitle.trim();
+                  const newTarget = parseFloat(editTarget);
+                  if (newTitle && newTarget > 0) {
+                    updateWishItem(wish.id, { title: newTitle, targetAmount: newTarget });
+                    setIsEditing(false);
+                  }
+                }}
+                disabled={!editTitle.trim() || parseFloat(editTarget) <= 0}
+                className={clsx(
+                  "flex-1 py-2 rounded-xl text-sm font-medium transition-colors",
+                  editTitle.trim() && parseFloat(editTarget) > 0
+                    ? "btn-primary"
+                    : "bg-white/30 text-forest-bark cursor-not-allowed"
+                )}
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* 进度信息 */
+          <div className="space-y-3 mb-5">
+            <div className="flex justify-between text-sm">
+              <span className="text-forest-bark">已存金额</span>
+              <span className="font-bold text-forest-deep">¥{wish.savedAmount.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-forest-bark">目标金额</span>
+              <span className="font-bold text-forest-deep">¥{wish.targetAmount.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-forest-bark">完成进度</span>
+              <span className="font-bold text-forest-mid">{percent}%</span>
+            </div>
+            <div className="h-3 rounded-full bg-white/40 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${percent}%`,
+                  background: "linear-gradient(90deg, #2A9D8F, #06D6A0)",
+                }}
+              />
+            </div>
+            {isCompleted && wish.completedAt && (
+              <div className="text-center text-sm text-forest-mid font-medium">
+                🎉 完成于 {new Date(wish.completedAt).toLocaleDateString("zh-CN")}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 存入储蓄金 */}
-        {!isCompleted && (
+        {!isCompleted && !isEditing && (
           <div className="border-t border-white/30 pt-4">
             <h4 className="text-sm font-medium text-forest-deep mb-2">存入储蓄金</h4>
             <p className="text-xs text-forest-bark mb-2">
@@ -378,6 +458,34 @@ function WishDetailModal({
           <div className="mt-3 text-center text-sm text-berry-red font-medium">{toast}</div>
         )}
       </div>
+
+      {/* 删除确认弹窗 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-forest-deep/40 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="relative glass-card w-full max-w-xs p-6 text-center animate-slide-up">
+            <div className="text-4xl mb-3">🗑️</div>
+            <p className="text-sm text-forest-deep mb-4">确定要删除愿望「{wish.title}」吗？已存入的金额将保留在储蓄金中。</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="py-2.5 rounded-2xl bg-white/40 text-forest-bark font-medium text-sm hover:bg-white/60 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  deleteWishItem(wish.id);
+                  onClose();
+                }}
+                className="py-2.5 rounded-2xl bg-[#F77F00] text-white font-medium text-sm hover:bg-[#F77F00]/90 transition-colors"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

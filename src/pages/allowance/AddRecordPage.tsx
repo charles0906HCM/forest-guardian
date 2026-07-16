@@ -65,6 +65,9 @@ export default function AddRecordPage() {
 
   const [toast, setToast] = useState<string | null>(null);
   const [showOpportunityTip, setShowOpportunityTip] = useState(false);
+  const [multiAccountMode, setMultiAccountMode] = useState(false);
+  const [selectedAccounts, setSelectedAccounts] = useState<AccountType[]>(["consume"]);
+  const [showInsufficientModal, setShowInsufficientModal] = useState(false);
 
   const activeWishes = wishItems.filter((w) => w.status === "active");
   const consumeBalance = wallet.consumeBalance;
@@ -87,16 +90,37 @@ export default function AddRecordPage() {
       setTimeout(() => setToast(null), 2000);
       return;
     }
-    const accountBalance =
-      account === "consume"
-        ? wallet.consumeBalance
-        : account === "save"
-        ? wallet.saveBalance
-        : wallet.shareBalance;
-    if (amount > accountBalance) {
-      setToast(`${account === "consume" ? "消费金" : account === "save" ? "储蓄金" : "分享金"}余额不足`);
-      setTimeout(() => setToast(null), 2000);
-      return;
+
+    const totalBalance = wallet.consumeBalance + wallet.saveBalance + wallet.shareBalance;
+
+    if (multiAccountMode) {
+      // 多账户模式：检查选中账户总额是否足够
+      const selectedTotal = selectedAccounts.reduce((sum, acc) => {
+        return sum + (acc === "consume" ? wallet.consumeBalance : acc === "save" ? wallet.saveBalance : wallet.shareBalance);
+      }, 0);
+      if (amount > selectedTotal) {
+        setToast("所选账户余额总和不足");
+        setTimeout(() => setToast(null), 2000);
+        return;
+      }
+    } else {
+      // 单账户模式
+      const accountBalance =
+        account === "consume"
+          ? wallet.consumeBalance
+          : account === "save"
+          ? wallet.saveBalance
+          : wallet.shareBalance;
+      if (amount > accountBalance) {
+        if (amount > totalBalance) {
+          setToast("钱包总余额不足");
+          setTimeout(() => setToast(null), 2000);
+          return;
+        }
+        // 总余额足够，弹出提示
+        setShowInsufficientModal(true);
+        return;
+      }
     }
 
     // 机会成本提示
@@ -105,7 +129,8 @@ export default function AddRecordPage() {
       return;
     }
 
-    recordExpense(title.trim(), amount, category, account, mood || undefined, remark || undefined);
+    const finalAccount = multiAccountMode ? selectedAccounts : account;
+    recordExpense(title.trim(), amount, category, finalAccount, mood || undefined, remark || undefined);
     navigate("/allowance");
   };
 
@@ -263,29 +288,99 @@ export default function AddRecordPage() {
 
               {/* 账户选择 */}
               <div>
-                <label className="text-sm font-medium text-forest-deep">从哪个账户支出</label>
-                <div className="grid grid-cols-3 gap-2 mt-1.5">
-                  {([
-                    { type: "consume" as AccountType, label: "消费金", color: "#4361EE", icon: "🛒" },
-                    { type: "save" as AccountType, label: "储蓄金", color: "#FFB703", icon: "🏦" },
-                    { type: "share" as AccountType, label: "分享金", color: "#FF70A6", icon: "💝" },
-                  ]).map((acc) => (
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-forest-deep">从哪个账户支出</label>
+                  {multiAccountMode && (
                     <button
-                      key={acc.type}
-                      onClick={() => setAccount(acc.type)}
-                      className={clsx(
-                        "py-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-0.5",
-                        account === acc.type
-                          ? "border-2"
-                          : "bg-white/30 text-forest-bark hover:bg-white/50 border-2 border-transparent"
-                      )}
-                      style={account === acc.type ? { borderColor: acc.color + "66", backgroundColor: acc.color + "18", color: acc.color } : {}}
+                      onClick={() => { setMultiAccountMode(false); setSelectedAccounts([account]); }}
+                      className="text-xs text-forest-mid hover:text-forest-deep"
                     >
-                      <span className="text-lg">{acc.icon}</span>
-                      {acc.label}
+                      切换回单账户
                     </button>
-                  ))}
+                  )}
                 </div>
+
+                {multiAccountMode ? (
+                  /* 多账户复选模式 */
+                  <div className="grid grid-cols-3 gap-2 mt-1.5">
+                    {([
+                      { type: "consume" as AccountType, label: "消费金", color: "#4361EE", icon: "🛒" },
+                      { type: "save" as AccountType, label: "储蓄金", color: "#FFB703", icon: "🏦" },
+                      { type: "share" as AccountType, label: "分享金", color: "#FF70A6", icon: "💝" },
+                    ]).map((acc) => {
+                      const accBalance = acc.type === "consume" ? wallet.consumeBalance : acc.type === "save" ? wallet.saveBalance : wallet.shareBalance;
+                      const isSelected = selectedAccounts.includes(acc.type);
+                      return (
+                        <button
+                          key={acc.type}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedAccounts(selectedAccounts.filter(a => a !== acc.type));
+                            } else {
+                              setSelectedAccounts([...selectedAccounts, acc.type]);
+                            }
+                          }}
+                          className={clsx(
+                            "py-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-0.5 border-2",
+                            isSelected ? "" : "bg-white/30 text-forest-bark hover:bg-white/50 border-transparent"
+                          )}
+                          style={isSelected ? { borderColor: acc.color + "66", backgroundColor: acc.color + "18", color: acc.color } : {}}
+                        >
+                          <span className="text-lg">{acc.icon}</span>
+                          {acc.label}
+                          <span className="text-[10px] opacity-70">{accBalance.toFixed(2)}元</span>
+                          {isSelected && <span className="text-[10px]">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* 单选模式 */
+                  <div className="grid grid-cols-3 gap-2 mt-1.5">
+                    {([
+                      { type: "consume" as AccountType, label: "消费金", color: "#4361EE", icon: "🛒" },
+                      { type: "save" as AccountType, label: "储蓄金", color: "#FFB703", icon: "🏦" },
+                      { type: "share" as AccountType, label: "分享金", color: "#FF70A6", icon: "💝" },
+                    ]).map((acc) => (
+                      <button
+                        key={acc.type}
+                        onClick={() => setAccount(acc.type)}
+                        className={clsx(
+                          "py-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-0.5",
+                          account === acc.type
+                            ? "border-2"
+                            : "bg-white/30 text-forest-bark hover:bg-white/50 border-2 border-transparent"
+                        )}
+                        style={account === acc.type ? { borderColor: acc.color + "66", backgroundColor: acc.color + "18", color: acc.color } : {}}
+                      >
+                        <span className="text-lg">{acc.icon}</span>
+                        {acc.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 多账户模式下的分配预览 */}
+                {multiAccountMode && amount > 0 && selectedAccounts.length > 0 && (
+                  <div className="mt-2 p-3 rounded-xl bg-white/30 text-xs text-forest-bark space-y-1">
+                    <div className="font-medium text-forest-deep">扣款预览：</div>
+                    {(() => {
+                      let remaining = amount;
+                      const items: JSX.Element[] = [];
+                      for (const acc of selectedAccounts) {
+                        if (remaining <= 0) break;
+                        const accBalance = acc === "consume" ? wallet.consumeBalance : acc === "save" ? wallet.saveBalance : wallet.shareBalance;
+                        if (accBalance <= 0) continue;
+                        const deduct = Math.min(accBalance, remaining);
+                        const accLabel = acc === "consume" ? "消费金" : acc === "save" ? "储蓄金" : "分享金";
+                        items.push(<div key={acc}>{accLabel}: 扣除 {deduct.toFixed(2)} 元</div>);
+                        remaining = Math.round((remaining - deduct) * 100) / 100;
+                      }
+                      if (remaining > 0) items.push(<div key="insufficient" className="text-[#F77F00]">所选账户余额不足，还差 {remaining.toFixed(2)} 元</div>);
+                      return items;
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* 备注 */}
@@ -331,6 +426,47 @@ export default function AddRecordPage() {
               </button>
             </div>
 
+            {/* 余额不足提示弹窗 */}
+            {showInsufficientModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-forest-deep/30 backdrop-blur-sm" onClick={() => setShowInsufficientModal(false)} />
+                <div className="relative glass-card w-full max-w-sm p-6 animate-slide-up text-center">
+                  <div className="text-4xl mb-3">💡</div>
+                  <h3 className="font-display text-lg text-forest-deep mb-2">余额不足提示</h3>
+                  <p className="text-sm text-forest-bark mb-1">
+                    {account === "consume" ? "消费金" : account === "save" ? "储蓄金" : "分享金"}余额不足以支付这笔支出
+                  </p>
+                  <p className="text-sm text-forest-bark mb-4">
+                    是否切换到多账户模式，从其他账户补足？
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setShowInsufficientModal(false)}
+                      className="py-2.5 rounded-2xl bg-white/40 text-forest-bark font-medium text-sm hover:bg-white/60 transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMultiAccountMode(true);
+                        setSelectedAccounts([account]);
+                        // 自动添加有余额的其他账户
+                        const otherAccounts: AccountType[] = [];
+                        if (account !== "consume" && wallet.consumeBalance > 0) otherAccounts.push("consume");
+                        if (account !== "save" && wallet.saveBalance > 0) otherAccounts.push("save");
+                        if (account !== "share" && wallet.shareBalance > 0) otherAccounts.push("share");
+                        setSelectedAccounts([account, ...otherAccounts]);
+                        setShowInsufficientModal(false);
+                      }}
+                      className="py-2.5 rounded-2xl bg-[#4CC9F0] text-white font-medium text-sm hover:bg-[#4CC9F0]/90 transition-colors"
+                    >
+                      切换多账户
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 机会成本提示弹窗 */}
             {showOpportunityTip && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -357,7 +493,8 @@ export default function AddRecordPage() {
                     <button
                       onClick={() => {
                         setShowOpportunityTip(false);
-                        recordExpense(title.trim(), amount, category, account, mood || undefined, remark || undefined);
+                        const finalAccount = multiAccountMode ? selectedAccounts : account;
+                        recordExpense(title.trim(), amount, category, finalAccount, mood || undefined, remark || undefined);
                         navigate("/allowance");
                       }}
                       className="py-2.5 rounded-2xl bg-[#F77F00] text-white font-medium text-sm hover:bg-[#F77F00]/90 transition-colors"
