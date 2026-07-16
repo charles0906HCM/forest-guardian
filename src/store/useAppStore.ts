@@ -356,19 +356,37 @@ export const useAppStore = create<AppStore>((set, get) => {
       },
     });
 
-    addAllowanceTransactionImpl({
-      type: "income",
-      category: source === "exchange" ? "星愿兑换" : source === "parent" ? "家长发放" : "其他收入",
-      amount,
-      title,
-      date: todayISO(),
-      remark: "",
-      mood: null,
-      source,
-      account: "consume",
-      parentComment: "",
-      reviewStatus: null,
-    });
+    // 按三金比例创建独立的交易记录，每个账户各一条
+    const category = source === "exchange" ? "星愿兑换" : source === "parent" ? "家长发放" : "其他收入";
+    const today = todayISO();
+    const now = new Date().toISOString();
+
+    const incomeTransactions: AllowanceTransaction[] = [];
+    if (consumeAmount > 0) {
+      incomeTransactions.push({
+        id: genId(), type: "income", category, amount: consumeAmount, title,
+        date: today, remark: "", mood: null, source,
+        account: "consume", parentComment: "", reviewStatus: null, createdAt: now,
+      });
+    }
+    if (saveAmount > 0) {
+      incomeTransactions.push({
+        id: genId(), type: "income", category, amount: saveAmount, title,
+        date: today, remark: "", mood: null, source,
+        account: "save", parentComment: "", reviewStatus: null, createdAt: now,
+      });
+    }
+    if (shareAmount > 0) {
+      incomeTransactions.push({
+        id: genId(), type: "income", category, amount: shareAmount, title,
+        date: today, remark: "", mood: null, source,
+        account: "share", parentComment: "", reviewStatus: null, createdAt: now,
+      });
+    }
+
+    set((s) => ({
+      allowanceTransactions: [...s.allowanceTransactions, ...incomeTransactions],
+    }));
 
     persist();
   };
@@ -388,27 +406,11 @@ export const useAppStore = create<AppStore>((set, get) => {
     if (!transaction || transaction.reviewStatus !== "pending") return;
 
     if (approved) {
-      // 审核通过，到账
-      const wallet = s.wallet;
-      const settings = s.allowanceSettings;
-      const amount = transaction.amount;
-      const consumeAmount = Math.round(amount * settings.consumeRatio * 100) / 100;
-      const saveAmount = Math.round(amount * settings.saveRatio * 100) / 100;
-      const shareAmount = Math.round((amount - consumeAmount - saveAmount) * 100) / 100;
-
+      // 审核通过：删除待审核记录，调用 recordIncome 创建三金分拆记录
       set({
-        wallet: {
-          ...wallet,
-          totalBalance: Math.round((wallet.totalBalance + amount) * 100) / 100,
-          consumeBalance: Math.round((wallet.consumeBalance + consumeAmount) * 100) / 100,
-          saveBalance: Math.round((wallet.saveBalance + saveAmount) * 100) / 100,
-          shareBalance: Math.round((wallet.shareBalance + shareAmount) * 100) / 100,
-          totalEarned: Math.round((wallet.totalEarned + amount) * 100) / 100,
-        },
-        allowanceTransactions: s.allowanceTransactions.map(t =>
-          t.id === transactionId ? { ...t, reviewStatus: "approved", title: t.title.replace("（待审核）", "") } : t
-        ),
+        allowanceTransactions: s.allowanceTransactions.filter(t => t.id !== transactionId),
       });
+      get().recordIncome(transaction.amount, "exchange", "星愿币兑换");
     } else {
       // 驳回，退还星愿币
       const starCoinAmount = Math.round(transaction.amount * s.allowanceSettings.exchangeRate);

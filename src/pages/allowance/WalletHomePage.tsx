@@ -34,6 +34,7 @@ export default function WalletHomePage() {
 
   // 三金账户明细弹窗
   const [selectedAccount, setSelectedAccount] = useState<AccountType | null>(null);
+  const [showAllIncome, setShowAllIncome] = useState(false);
 
   useEffect(() => {
     const now = Date.now();
@@ -74,7 +75,10 @@ export default function WalletHomePage() {
         </header>
 
         {/* 余额总览卡片 */}
-        <div className="glass-card p-6 md:p-8 relative overflow-hidden">
+        <div
+          className="glass-card p-6 md:p-8 relative overflow-hidden cursor-pointer hover:shadow-glass-lg transition-shadow"
+          onClick={() => setShowAllIncome(true)}
+        >
           <div className="absolute -right-8 -top-8 text-9xl opacity-20 animate-float-soft">💰</div>
           <div className="relative">
             <div className="text-sm text-forest-bark font-medium">可用零用钱总额</div>
@@ -284,6 +288,14 @@ export default function WalletHomePage() {
           />
         )}
 
+        {/* 所有收入明细弹窗 */}
+        {showAllIncome && (
+          <AllIncomeModal
+            transactions={allowanceTransactions}
+            onClose={() => setShowAllIncome(false)}
+          />
+        )}
+
         {/* 机会成本提示：存在进行中愿望 */}
         {activeWishes.length > 0 && (
           <div className="glass-card p-4 border-l-4 border-[#FFB703]">
@@ -372,16 +384,9 @@ function AccountDetailModal({
   onClose: () => void;
 }) {
   const config = ACCOUNT_CONFIG[account];
-  // 收入按比例分配到三个账户，所以所有收入都显示；
-  // 支出只显示从该账户扣款的记录（remark 中含多账户分配明细）
+  // 每个账户只显示属于自己的交易记录
   const accountTransactions = transactions
-    .filter((t) => {
-      if (t.type === "income") return true; // 收入影响所有账户
-      // 支出：检查 account 字段及 remark 中的分配明细
-      if (t.account === account) return true;
-      const accLabel = config.label;
-      return t.remark?.includes(accLabel);
-    })
+    .filter((t) => t.account === account)
     .slice()
     .sort(
       (a, b) =>
@@ -452,6 +457,102 @@ function AccountDetailModal({
                 >
                   {tx.type === "income" ? "+" : "-"}
                   {tx.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AllIncomeModal({
+  transactions,
+  onClose,
+}: {
+  transactions: AllowanceTransaction[];
+  onClose: () => void;
+}) {
+  // 显示所有收入记录，按时间倒序
+  const incomeTransactions = transactions
+    .filter((t) => t.type === "income")
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+  // 收入总额
+  const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-forest-deep/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative glass-card w-full max-w-sm p-6 animate-slide-up">
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg text-forest-deep flex items-center gap-2">
+            <span className="text-2xl">💰</span>
+            所有收入明细
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl hover:bg-white/40 transition-colors"
+            title="关闭"
+          >
+            <X size={18} className="text-forest-mid" />
+          </button>
+        </div>
+
+        {/* 收入总额 */}
+        <div className="rounded-2xl bg-[#52B788]/10 p-3 mb-3 text-center border border-[#52B788]/20">
+          <div className="text-xs text-forest-bark">累计收入总额</div>
+          <div className="font-display text-2xl text-[#52B788] mt-1">
+            +{totalIncome.toFixed(2)}
+          </div>
+        </div>
+
+        {/* 收入列表 */}
+        {incomeTransactions.length === 0 ? (
+          <p className="text-sm text-forest-bark text-center py-8">
+            还没有收入记录
+          </p>
+        ) : (
+          <div className="space-y-1.5 max-h-[55vh] overflow-y-auto">
+            {incomeTransactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="flex items-center justify-between py-2 px-3 rounded-xl hover:bg-white/30 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">💰</span>
+                  <div className="min-w-0">
+                    <div className="text-sm text-forest-deep truncate">
+                      {tx.title}
+                    </div>
+                    <div className="text-[10px] text-forest-bark flex items-center gap-1">
+                      <span>
+                        {new Date(tx.createdAt).toLocaleString("zh-CN", {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span>·</span>
+                      <span style={{ color: ACCOUNT_CONFIG[tx.account].color }}>
+                        {ACCOUNT_CONFIG[tx.account].icon}
+                        {ACCOUNT_CONFIG[tx.account].label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <span className="font-bold text-sm text-[#52B788]">
+                  +{tx.amount.toFixed(2)}
                 </span>
               </div>
             ))}
