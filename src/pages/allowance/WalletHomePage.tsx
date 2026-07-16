@@ -372,8 +372,16 @@ function AccountDetailModal({
   onClose: () => void;
 }) {
   const config = ACCOUNT_CONFIG[account];
+  // 收入按比例分配到三个账户，所以所有收入都显示；
+  // 支出只显示从该账户扣款的记录（remark 中含多账户分配明细）
   const accountTransactions = transactions
-    .filter((t) => t.account === account)
+    .filter((t) => {
+      if (t.type === "income") return true; // 收入影响所有账户
+      // 支出：检查 account 字段及 remark 中的分配明细
+      if (t.account === account) return true;
+      const accLabel = config.label;
+      return t.remark?.includes(accLabel);
+    })
     .slice()
     .sort(
       (a, b) =>

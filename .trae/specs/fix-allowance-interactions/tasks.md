@@ -18,10 +18,10 @@
   - [x] 3.4 修改 `src/store/useAppStore.ts` 的 `recordExpense` 方法，支持传入 `accounts: AccountType[]` 参数，依次从各账户扣款
   - [x] 3.5 交易记录的 `account` 字段记录主账户（第一个扣款账户），`remark` 中注明各账户分配明细
 
-- [ ] Task 4: 构建验证与部署
-  - [ ] 4.1 TypeScript 类型检查通过
-  - [ ] 4.2 生产构建成功
-  - [ ] 4.3 推送代码到 GitHub 触发自动部署
+- [x] Task 4: 构建验证与部署
+  - [x] 4.1 TypeScript 类型检查通过
+  - [x] 4.2 生产构建成功
+  - [x] 4.3 推送代码到 GitHub 触发自动部署
 
 # Task Dependencies
 - [Task 2] depends on nothing (可与 Task 1 并行)
