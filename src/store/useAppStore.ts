@@ -16,7 +16,7 @@ import type {
   WishItem,
 } from "@/types";
 import { OTHER_SUBJECT_ID } from "@/types";
-import { loadData, saveData, migrateAllowanceTransactions } from "@/utils/storage";
+import { loadData, saveData } from "@/utils/storage";
 import { genId, todayISO, isTaskCompletedOnDate } from "@/utils/date";
 import { isTargetMet } from "@/utils/scoreStats";
 import {
@@ -148,13 +148,6 @@ export const useAppStore = create<AppStore>((set, get) => {
     const local = get();
     const calculatedBalance = (remote.transactions || []).reduce((sum, tx) => sum + tx.amount, 0);
     const defaults = loadData();
-    const settings = remote.allowanceSettings ?? local.allowanceSettings ?? defaults.allowanceSettings;
-    // 云端数据可能也是旧版格式，同步迁移
-    const remoteAllowanceTransactions = remote.allowanceTransactions ?? local.allowanceTransactions ?? [];
-    const hasOldIncome = remoteAllowanceTransactions.some(t => t.type === "income" && t.account === "consume" && !remoteAllowanceTransactions.some(s => s.type === "income" && s.account === "save"));
-    const allowanceTransactions = hasOldIncome
-      ? migrateAllowanceTransactions(remoteAllowanceTransactions, settings)
-      : remoteAllowanceTransactions;
     return {
       tasks: remote.tasks || local.tasks,
       subjects: (remote.subjects && remote.subjects.length > 0 ? remote.subjects : local.subjects),
@@ -166,10 +159,10 @@ export const useAppStore = create<AppStore>((set, get) => {
       balance: calculatedBalance,
       waterLog: remote.waterLog ?? local.waterLog ?? {},
       wallet: remote.wallet ?? local.wallet ?? defaults.wallet,
-      allowanceTransactions,
+      allowanceTransactions: remote.allowanceTransactions ?? local.allowanceTransactions ?? [],
       wishItems: remote.wishItems ?? local.wishItems ?? [],
       allowanceAchievements: remote.allowanceAchievements ?? local.allowanceAchievements ?? [],
-      allowanceSettings: settings,
+      allowanceSettings: remote.allowanceSettings ?? local.allowanceSettings ?? defaults.allowanceSettings,
     };
   };
 
@@ -272,6 +265,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         mood: null,
         source: "exchange",
         account: "consume",
+        accountSplits: { consume: 0, save: 0, share: 0 }, // 待审核，到账时再计算
         parentComment: "",
         reviewStatus: "pending",
       });
@@ -301,8 +295,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     let remainingAmount = amount;
     const walletUpdates: Record<string, number> = {};
     const accountBreakdown: string[] = [];
-    // 记录每个账户的实际扣款金额，用于创建独立交易记录
-    const deductPerAccount: { account: AccountType; amount: number }[] = [];
+    // 记录各账户实际扣款金额
+    const splits = { consume: 0, save: 0, share: 0 };
 
     for (const acc of accounts) {
       if (remainingAmount <= 0) break;
@@ -310,9 +304,9 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (accBalance <= 0) continue;
       const deduct = Math.min(accBalance, remainingAmount);
       walletUpdates[`${acc}Balance`] = Math.round((accBalance - deduct) * 100) / 100;
+      splits[acc] = Math.round(deduct * 100) / 100;
       const accLabel = acc === "consume" ? "消费金" : acc === "save" ? "储蓄金" : "分享金";
       accountBreakdown.push(`${accLabel}扣除${deduct.toFixed(2)}元`);
-      deductPerAccount.push({ account: acc, amount: Math.round(deduct * 100) / 100 });
       remainingAmount = Math.round((remainingAmount - deduct) * 100) / 100;
     }
 
@@ -328,29 +322,20 @@ export const useAppStore = create<AppStore>((set, get) => {
       },
     });
 
-    // 为每个被扣款的账户创建独立的支出记录，确保三金账户各自可见
-    const today = todayISO();
-    const now = new Date().toISOString();
-    const breakdownText = accountBreakdown.join("，");
-    const expenseTransactions: AllowanceTransaction[] = deductPerAccount.map((d) => ({
-      id: genId(),
-      type: "expense" as const,
+    addAllowanceTransactionImpl({
+      type: "expense",
       category,
-      amount: d.amount,
+      amount,
       title,
-      date: today,
-      remark: remark ? `${remark}（${breakdownText}）` : breakdownText,
+      date: todayISO(),
+      remark: remark ? `${remark}（${accountBreakdown.join("，")}）` : accountBreakdown.join("，"),
       mood: mood || null,
       source: null,
-      account: d.account,
+      account: accounts[0],
+      accountSplits: splits,
       parentComment: "",
       reviewStatus: null,
-      createdAt: now,
-    }));
-
-    set((s) => ({
-      allowanceTransactions: [...s.allowanceTransactions, ...expenseTransactions],
-    }));
+    });
 
     persist();
   };
@@ -376,37 +361,20 @@ export const useAppStore = create<AppStore>((set, get) => {
       },
     });
 
-    // 按三金比例创建独立的交易记录，每个账户各一条
-    const category = source === "exchange" ? "星愿兑换" : source === "parent" ? "家长发放" : "其他收入";
-    const today = todayISO();
-    const now = new Date().toISOString();
-
-    const incomeTransactions: AllowanceTransaction[] = [];
-    if (consumeAmount > 0) {
-      incomeTransactions.push({
-        id: genId(), type: "income", category, amount: consumeAmount, title,
-        date: today, remark: "", mood: null, source,
-        account: "consume", parentComment: "", reviewStatus: null, createdAt: now,
-      });
-    }
-    if (saveAmount > 0) {
-      incomeTransactions.push({
-        id: genId(), type: "income", category, amount: saveAmount, title,
-        date: today, remark: "", mood: null, source,
-        account: "save", parentComment: "", reviewStatus: null, createdAt: now,
-      });
-    }
-    if (shareAmount > 0) {
-      incomeTransactions.push({
-        id: genId(), type: "income", category, amount: shareAmount, title,
-        date: today, remark: "", mood: null, source,
-        account: "share", parentComment: "", reviewStatus: null, createdAt: now,
-      });
-    }
-
-    set((s) => ({
-      allowanceTransactions: [...s.allowanceTransactions, ...incomeTransactions],
-    }));
+    addAllowanceTransactionImpl({
+      type: "income",
+      category: source === "exchange" ? "星愿兑换" : source === "parent" ? "家长发放" : "其他收入",
+      amount,
+      title,
+      date: todayISO(),
+      remark: "",
+      mood: null,
+      source,
+      account: "consume",
+      accountSplits: { consume: consumeAmount, save: saveAmount, share: shareAmount },
+      parentComment: "",
+      reviewStatus: null,
+    });
 
     persist();
   };
@@ -426,11 +394,32 @@ export const useAppStore = create<AppStore>((set, get) => {
     if (!transaction || transaction.reviewStatus !== "pending") return;
 
     if (approved) {
-      // 审核通过：删除待审核记录，调用 recordIncome 创建三金分拆记录
+      // 审核通过，到账
+      const wallet = s.wallet;
+      const settings = s.allowanceSettings;
+      const amount = transaction.amount;
+      const consumeAmount = Math.round(amount * settings.consumeRatio * 100) / 100;
+      const saveAmount = Math.round(amount * settings.saveRatio * 100) / 100;
+      const shareAmount = Math.round((amount - consumeAmount - saveAmount) * 100) / 100;
+
       set({
-        allowanceTransactions: s.allowanceTransactions.filter(t => t.id !== transactionId),
+        wallet: {
+          ...wallet,
+          totalBalance: Math.round((wallet.totalBalance + amount) * 100) / 100,
+          consumeBalance: Math.round((wallet.consumeBalance + consumeAmount) * 100) / 100,
+          saveBalance: Math.round((wallet.saveBalance + saveAmount) * 100) / 100,
+          shareBalance: Math.round((wallet.shareBalance + shareAmount) * 100) / 100,
+          totalEarned: Math.round((wallet.totalEarned + amount) * 100) / 100,
+        },
+        allowanceTransactions: s.allowanceTransactions.map(t =>
+          t.id === transactionId ? {
+            ...t,
+            reviewStatus: "approved",
+            title: t.title.replace("（待审核）", ""),
+            accountSplits: { consume: consumeAmount, save: saveAmount, share: shareAmount },
+          } : t
+        ),
       });
-      get().recordIncome(transaction.amount, "exchange", "星愿币兑换");
     } else {
       // 驳回，退还星愿币
       const starCoinAmount = Math.round(transaction.amount * s.allowanceSettings.exchangeRate);

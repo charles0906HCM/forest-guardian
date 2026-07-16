@@ -256,6 +256,13 @@ export interface WalletAccount {
   totalSpent: number;        // 累计支出
 }
 
+// 三金账户金额分配
+export interface AccountSplits {
+  consume: number;  // 消费金分配金额
+  save: number;     // 储蓄金分配金额
+  share: number;    // 分享金分配金额
+}
+
 // 零用钱交易记录
 export interface AllowanceTransaction {
   id: string;
@@ -267,7 +274,8 @@ export interface AllowanceTransaction {
   remark: string;            // 备注
   mood: SpendMood | null;    // 消费心情
   source: IncomeSource | null; // 收入来源
-  account: AccountType;      // 所属账户
+  account: AccountType;      // 所属账户（主账户）
+  accountSplits?: AccountSplits; // 各账户分配明细
   parentComment: string;     // 家长评语
   reviewStatus: ReviewStatus | null; // 审核状态
   createdAt: string;

@@ -1,4 +1,4 @@
-import type { AppData, AllowanceTransaction, AllowanceSettings } from "@/types";
+import type { AppData } from "@/types";
 import { DEFAULT_SUBJECTS } from "@/types";
 
 const STORAGE_KEY = "forest-guard-data";
@@ -139,40 +139,15 @@ export function getDefaultData(): AppData {
   };
 }
 
-// 迁移旧版收入记录：将 account="consume" 的收入按三金比例拆分为三条独立记录
-export function migrateAllowanceTransactions(
-  transactions: AllowanceTransaction[],
-  settings: AllowanceSettings
-): AllowanceTransaction[] {
-  const consumeRatio = settings.consumeRatio;
-  const saveRatio = settings.saveRatio;
-  const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-
-  return transactions.flatMap((t) => {
-    if (t.type === "income" && t.account === "consume") {
-      const consumeAmount = Math.round(t.amount * consumeRatio * 100) / 100;
-      const saveAmount = Math.round(t.amount * saveRatio * 100) / 100;
-      const shareAmount = Math.round((t.amount - consumeAmount - saveAmount) * 100) / 100;
-
-      const split: AllowanceTransaction[] = [];
-      if (consumeAmount > 0) split.push({ ...t, account: "consume", amount: consumeAmount });
-      if (saveAmount > 0) split.push({ ...t, id: newId(), account: "save", amount: saveAmount });
-      if (shareAmount > 0) split.push({ ...t, id: newId(), account: "share", amount: shareAmount });
-      return split;
-    }
-    return [t];
-  });
-}
-
 // 从 localStorage 读取
 export function loadData(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return getDefaultData();
-    const parsed = JSON.parse(raw) as AppData & { dataVersion?: number };
+    const parsed = JSON.parse(raw) as AppData;
     // 合并默认数据确保字段完整
     const defaults = getDefaultData();
-
+    
     // 确保喝水习惯存在且在第一位
     let habits = parsed.habits ?? [];
     const waterIndex = habits.findIndex(h => h.name === "喝水");
@@ -189,15 +164,7 @@ export function loadData(): AppData {
       const waterHabit = habits.splice(waterIndex, 1)[0];
       habits = [waterHabit, ...habits];
     }
-
-    // 数据迁移 v2：将旧版收入记录（全部存在 consume 下）按三金比例拆分为三条独立记录
-    let allowanceTransactions = parsed.allowanceTransactions ?? [];
-    const dataVersion = parsed.dataVersion ?? 1;
-    if (dataVersion < 2 && allowanceTransactions.length > 0) {
-      const settings = parsed.allowanceSettings ?? defaults.allowanceSettings;
-      allowanceTransactions = migrateAllowanceTransactions(allowanceTransactions, settings);
-    }
-
+    
     return {
       ...defaults,
       ...parsed,
@@ -207,7 +174,7 @@ export function loadData(): AppData {
       waterLog: parsed.waterLog ?? {},
       tasks: (parsed.tasks ?? []).map(t => ({ ...t, repeatDays: t.repeatDays ?? [] })),
       wallet: parsed.wallet ?? defaults.wallet,
-      allowanceTransactions,
+      allowanceTransactions: parsed.allowanceTransactions ?? [],
       wishItems: parsed.wishItems ?? [],
       allowanceAchievements: parsed.allowanceAchievements ?? [],
       allowanceSettings: parsed.allowanceSettings ?? defaults.allowanceSettings,
@@ -220,7 +187,7 @@ export function loadData(): AppData {
 // 写入 localStorage
 export function saveData(data: AppData): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, dataVersion: 2 }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // 存储满或隐私模式,忽略
   }
