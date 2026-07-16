@@ -110,6 +110,37 @@ interface AppStore extends AppData {
 export const useAppStore = create<AppStore>((set, get) => {
   const initialData = loadData();
 
+  // 迁移：为旧交易数据补全 accountSplits 字段
+  const settings = initialData.allowanceSettings;
+  if (initialData.allowanceTransactions && initialData.allowanceTransactions.length > 0) {
+    let needsMigration = false;
+    const migrated = initialData.allowanceTransactions.map(t => {
+      if (t.accountSplits) return t;
+      needsMigration = true;
+      if (t.type === "income") {
+        // 收入按当前比例补算
+        const c = Math.round(t.amount * settings.consumeRatio * 100) / 100;
+        const s = Math.round(t.amount * settings.saveRatio * 100) / 100;
+        const sh = Math.round((t.amount - c - s) * 100) / 100;
+        return { ...t, accountSplits: { consume: c, save: s, share: sh } };
+      }
+      // 支出：全额归入 account 字段所在账户
+      const acc = t.account || "consume";
+      return {
+        ...t,
+        accountSplits: {
+          consume: acc === "consume" ? t.amount : 0,
+          save: acc === "save" ? t.amount : 0,
+          share: acc === "share" ? t.amount : 0,
+        },
+      };
+    });
+    if (needsMigration) {
+      initialData.allowanceTransactions = migrated;
+      saveData({ ...initialData, waterLog: initialData.waterLog });
+    }
+  }
+
   // 云同步推送（防抖）
   let syncTimer: ReturnType<typeof setTimeout> | null = null;
   const scheduleSyncPush = () => {

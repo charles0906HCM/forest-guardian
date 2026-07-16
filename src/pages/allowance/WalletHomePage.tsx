@@ -372,25 +372,14 @@ function AccountDetailModal({
   onClose: () => void;
 }) {
   const config = ACCOUNT_CONFIG[account];
-  const settings = useAppStore((s) => s.allowanceSettings);
-  // 根据 accountSplits 精确筛选该账户的交易
+  // 按账户分配明细筛选：只显示该账户有实际金额变动的交易
   const accountTransactions = transactions
     .filter((t) => {
       if (t.accountSplits) {
         return t.accountSplits[account] > 0;
       }
-      // 兼容旧数据：无 accountSplits 时
-      if (t.type === "income") {
-        // 收入按默认分配比例计算，比例 > 0 就显示
-        const ratio =
-          account === "consume"
-            ? settings.consumeRatio
-            : account === "save"
-            ? settings.saveRatio
-            : settings.shareRatio;
-        return ratio > 0;
-      }
-      // 支出按 account 字段匹配
+      // 兼容未迁移数据
+      if (t.type === "income") return true;
       return t.account === account;
     })
     .slice()
@@ -399,19 +388,10 @@ function AccountDetailModal({
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-  // 获取该账户对应的金额（有 splits 用 splits，没有则收入按比例估算）
+  // 获取该账户对应的金额
   const getTxAmountForAccount = (tx: AllowanceTransaction): number => {
     if (tx.accountSplits) {
       return tx.accountSplits[account];
-    }
-    if (tx.type === "income") {
-      const ratio =
-        account === "consume"
-          ? settings.consumeRatio
-          : account === "save"
-          ? settings.saveRatio
-          : settings.shareRatio;
-      return Math.round(tx.amount * ratio * 100) / 100;
     }
     return tx.amount;
   };
