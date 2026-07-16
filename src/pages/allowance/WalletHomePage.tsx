@@ -288,9 +288,9 @@ export default function WalletHomePage() {
           />
         )}
 
-        {/* 所有收入明细弹窗 */}
+        {/* 所有收支明细弹窗 */}
         {showAllIncome && (
-          <AllIncomeModal
+          <AllTransactionsModal
             transactions={allowanceTransactions}
             onClose={() => setShowAllIncome(false)}
           />
@@ -467,24 +467,28 @@ function AccountDetailModal({
   );
 }
 
-function AllIncomeModal({
+function AllTransactionsModal({
   transactions,
   onClose,
 }: {
   transactions: AllowanceTransaction[];
   onClose: () => void;
 }) {
-  // 显示所有收入记录，按时间倒序
-  const incomeTransactions = transactions
-    .filter((t) => t.type === "income")
+  // 显示所有收支记录，按时间倒序
+  const allTransactions = transactions
     .slice()
     .sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-  // 收入总额
-  const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+  // 收入总额和支出总额
+  const totalIncome = allTransactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = allTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -496,8 +500,8 @@ function AllIncomeModal({
         {/* 标题栏 */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg text-forest-deep flex items-center gap-2">
-            <span className="text-2xl">💰</span>
-            所有收入明细
+            <span className="text-2xl">📜</span>
+            所有收支明细
           </h3>
           <button
             onClick={onClose}
@@ -508,28 +512,40 @@ function AllIncomeModal({
           </button>
         </div>
 
-        {/* 收入总额 */}
-        <div className="rounded-2xl bg-[#52B788]/10 p-3 mb-3 text-center border border-[#52B788]/20">
-          <div className="text-xs text-forest-bark">累计收入总额</div>
-          <div className="font-display text-2xl text-[#52B788] mt-1">
-            +{totalIncome.toFixed(2)}
+        {/* 收支统计 */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="rounded-2xl bg-[#52B788]/10 p-2.5 text-center border border-[#52B788]/20">
+            <div className="text-[10px] text-forest-bark">累计收入</div>
+            <div className="font-display text-base text-[#52B788] mt-0.5">
+              +{totalIncome.toFixed(2)}
+            </div>
+          </div>
+          <div className="rounded-2xl bg-[#F77F00]/10 p-2.5 text-center border border-[#F77F00]/20">
+            <div className="text-[10px] text-forest-bark">累计支出</div>
+            <div className="font-display text-base text-[#F77F00] mt-0.5">
+              -{totalExpense.toFixed(2)}
+            </div>
           </div>
         </div>
 
-        {/* 收入列表 */}
-        {incomeTransactions.length === 0 ? (
+        {/* 收支列表 */}
+        {allTransactions.length === 0 ? (
           <p className="text-sm text-forest-bark text-center py-8">
-            还没有收入记录
+            还没有交易记录
           </p>
         ) : (
           <div className="space-y-1.5 max-h-[55vh] overflow-y-auto">
-            {incomeTransactions.map((tx) => (
+            {allTransactions.map((tx) => (
               <div
                 key={tx.id}
                 className="flex items-center justify-between py-2 px-3 rounded-xl hover:bg-white/30 transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-lg">💰</span>
+                  <span className="text-lg">
+                    {tx.type === "income"
+                      ? "💰"
+                      : EXPENSE_CATEGORY_ICONS[tx.category] || "📦"}
+                  </span>
                   <div className="min-w-0">
                     <div className="text-sm text-forest-deep truncate">
                       {tx.title}
@@ -551,8 +567,16 @@ function AllIncomeModal({
                     </div>
                   </div>
                 </div>
-                <span className="font-bold text-sm text-[#52B788]">
-                  +{tx.amount.toFixed(2)}
+                <span
+                  className={clsx(
+                    "font-bold text-sm",
+                    tx.type === "income"
+                      ? "text-[#52B788]"
+                      : "text-[#F77F00]"
+                  )}
+                >
+                  {tx.type === "income" ? "+" : "-"}
+                  {tx.amount.toFixed(2)}
                 </span>
               </div>
             ))}

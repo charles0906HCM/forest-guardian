@@ -301,6 +301,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     let remainingAmount = amount;
     const walletUpdates: Record<string, number> = {};
     const accountBreakdown: string[] = [];
+    // 记录每个账户的实际扣款金额，用于创建独立交易记录
+    const deductPerAccount: { account: AccountType; amount: number }[] = [];
 
     for (const acc of accounts) {
       if (remainingAmount <= 0) break;
@@ -310,6 +312,7 @@ export const useAppStore = create<AppStore>((set, get) => {
       walletUpdates[`${acc}Balance`] = Math.round((accBalance - deduct) * 100) / 100;
       const accLabel = acc === "consume" ? "消费金" : acc === "save" ? "储蓄金" : "分享金";
       accountBreakdown.push(`${accLabel}扣除${deduct.toFixed(2)}元`);
+      deductPerAccount.push({ account: acc, amount: Math.round(deduct * 100) / 100 });
       remainingAmount = Math.round((remainingAmount - deduct) * 100) / 100;
     }
 
@@ -325,19 +328,29 @@ export const useAppStore = create<AppStore>((set, get) => {
       },
     });
 
-    addAllowanceTransactionImpl({
-      type: "expense",
+    // 为每个被扣款的账户创建独立的支出记录，确保三金账户各自可见
+    const today = todayISO();
+    const now = new Date().toISOString();
+    const breakdownText = accountBreakdown.join("，");
+    const expenseTransactions: AllowanceTransaction[] = deductPerAccount.map((d) => ({
+      id: genId(),
+      type: "expense" as const,
       category,
-      amount,
+      amount: d.amount,
       title,
-      date: todayISO(),
-      remark: remark ? `${remark}（${accountBreakdown.join("，")}）` : accountBreakdown.join("，"),
+      date: today,
+      remark: remark ? `${remark}（${breakdownText}）` : breakdownText,
       mood: mood || null,
       source: null,
-      account: accounts[0],
+      account: d.account,
       parentComment: "",
       reviewStatus: null,
-    });
+      createdAt: now,
+    }));
+
+    set((s) => ({
+      allowanceTransactions: [...s.allowanceTransactions, ...expenseTransactions],
+    }));
 
     persist();
   };
